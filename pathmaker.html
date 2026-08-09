@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathMaker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+<style>
+  :root{
+    --bg:#11171a;
+    --bg-alt:#161d20;
+    --panel:#1b2422;
+    --panel-line:#2a3532;
+    --line:#8fa382;
+    --line-alt:#c98a4a;
+    --line-dim:#4d5c50;
+    --accent:#c9a227;
+    --accent-soft:#e8c766;
+    --paper:#f1ead6;
+    --paper-dim:#d8cfb4;
+    --text:#edefea;
+    --text-dim:#93a49c;
+    --danger:#c1543b;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    overflow:hidden;
+  }
+  #app{ position:relative; width:100vw; height:100vh; }
+  .screen{
+    position:absolute; inset:0;
+    display:none;
+    flex-direction:column;
+  }
+  .screen.active{ display:flex; }
+
+  /* ---------- Title screen ---------- */
+  #screen-title{
+    align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(143,163,130,0.18), transparent 60%),
+      var(--bg);
+    text-align:center;
+  }
+  .title-mark{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(48px, 9vw, 92px);
+    letter-spacing:-0.01em;
+    color:var(--text);
+    margin:0;
+  }
+  .title-mark span{ color:var(--accent); font-style:italic; }
+  .title-sub{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--text-dim);
+    font-size:14px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-top:6px;
+    margin-bottom:56px;
+  }
+  .title-branches{ display:flex; gap:18px; margin-top:8px; }
+  .title-btn{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:var(--radius);
+    padding:18px 26px;
+    min-width:150px;
+    cursor:pointer;
+    transition:border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  .title-btn:hover{ border-color:var(--line); background:var(--bg-alt); transform:translateY(-2px); }
+  .title-btn small{ display:block; font-family:'IBM Plex Mono', monospace; font-weight:400; color:var(--text-dim); font-size:11px; margin-top:6px; letter-spacing:.03em; }
+
+  /* ---------- Top bar (shared) ---------- */
+  .topbar{
+    display:flex; align-items:center; gap:14px;
+    padding:14px 20px;
+    background:var(--bg-alt);
+    border-bottom:1px solid var(--panel-line);
+    flex-shrink:0;
+  }
+  .topbar .app-name{ font-family:'Fraunces', serif; font-weight:600; font-size:20px; }
+  .topbar .app-name span{ color:var(--accent); font-style:italic; }
+  .topbar .spacer{ flex:1; }
+  .btn{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13px; font-weight:600;
+    color:var(--text);
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+    padding:9px 14px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn:hover{ border-color:var(--line); }
+  .btn.primary{ background:var(--accent); color:#1a1405; border-color:var(--accent); }
+  .btn.primary:hover{ background:var(--accent-soft); border-color:var(--accent-soft); }
+  .btn.ghost{ background:transparent; }
+  .btn.danger{ color:#ffb3a1; border-color:#4a2b23; }
+  .btn.danger:hover{ border-color:var(--danger); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* ---------- Import screen ---------- */
+  #screen-import{ background:var(--bg); align-items:center; }
+  .import-wrap{
+    flex:1; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:26px; padding:20px;
+  }
+  .import-title{ font-family:'Fraunces', serif; font-size:26px; color:var(--text); }
+  .import-panels{ display:flex; gap:24px; flex-wrap:wrap; justify-content:center; }
+  .dropzone{
+    width:280px; height:190px;
+    border:2px dashed var(--line-dim);
+    border-radius:var(--radius);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px;
+    color:var(--text-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+    background:var(--panel);
+    text-align:center;
+    padding:16px;
+  }
+  .dropzone.drag{ border-color:var(--accent); background:var(--bg-alt); color:var(--accent-soft); }
+  .dropzone svg{ width:34px; height:34px; stroke:var(--line); }
+  .paste-panel{
+    width:320px; height:190px;
+    display:flex; flex-direction:column;
+  }
+  .paste-panel textarea{
+    flex:1; resize:none;
+    background:var(--paper); color:#20291f;
+    border:1px solid var(--paper-dim);
+    border-radius:var(--radius);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:12px;
+    line-height:1.5;
+  }
+  .paste-panel textarea::placeholder{ color:#7c7357; }
+  .import-error{
+    color:#ffb3a1; font-family:'IBM Plex Mono', monospace; font-size:13px;
+    min-height:18px;
+  }
+  #file-input{ display:none; }
+
+  /* ---------- Editor screen ---------- */
+  #screen-editor{ background:var(--bg); }
+  .editor-canvas-outer{
+    flex:1; overflow:auto; position:relative;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.045) 1px, transparent 0) 0 0/22px 22px,
+      var(--bg);
+    padding:40px 60px 120px 60px;
+  }
+  .tree-container{ position:relative; margin:0 auto; }
+  svg.connectors{ position:absolute; top:0; left:0; overflow:visible; pointer-events:none; }
+  .node-card{
+    position:absolute;
+    width:200px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:var(--radius);
+    padding:12px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.28);
+  }
+  .node-card.root{ border-color:var(--accent); }
+  .node-card.ended{ border-color:var(--line-alt); }
+  .field-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--text-dim); margin:8px 0 4px;
+  }
+  .field-label:first-of-type{ margin-top:0; }
+  .end-badge{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px; letter-spacing:.08em; font-weight:600;
+    color:#1a1405; background:var(--line-alt);
+    border-radius:5px; padding:3px 7px; display:inline-block; margin-bottom:8px;
+  }
+  .node-card textarea.node-text{
+    width:100%;
+    background:var(--paper);
+    color:#20291f;
+    border:1px solid var(--paper-dim);
+    border-radius:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    line-height:1.4;
+    padding:8px;
+    resize:none;
+    min-height:44px;
+  }
+  .node-card textarea.node-text.question{ background:#eee7cf; }
+  .node-card textarea.node-text::placeholder{ color:#83794f; }
+  .node-answers{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+  .answer-row{ display:flex; align-items:center; gap:6px; }
+  .answer-row input.answer-label{
+    flex:1; min-width:0;
+    background:var(--bg-alt);
+    border:1px solid var(--panel-line);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 8px;
+    border-radius:6px;
+  }
+  .answer-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .answer-dot.left{ background:var(--line); }
+  .answer-dot.right{ background:var(--line-alt); }
+  .node-actions{ margin-top:10px; display:flex; justify-content:flex-end; gap:8px; }
+  .node-actions .btn{ padding:5px 9px; font-size:11px; }
+  .btn.toggle-end{ color:var(--text-dim); }
+  .btn.toggle-end.active{ background:var(--line-alt); color:#1a1405; border-color:var(--line-alt); }
+
+  .placeholder-node{
+    position:absolute;
+    width:110px;
+    border:1.5px dashed var(--line-dim);
+    border-radius:var(--radius);
+    color:var(--text-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center;
+    padding:10px;
+    cursor:pointer;
+    background:transparent;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .placeholder-node:hover{ border-color:var(--accent); color:var(--accent-soft); background:rgba(201,162,39,0.06); }
+
+  .path-name-field{
+    background:transparent; border:none; color:var(--text);
+    font-family:'Fraunces', serif; font-size:18px; font-weight:600;
+    border-bottom:1px solid transparent; padding:2px 2px;
+    max-width:220px;
+  }
+  .path-name-field:focus{ outline:none; border-bottom:1px solid var(--line); }
+  .path-name-field::placeholder{ color:var(--text-dim); font-weight:400; }
+
+  /* ---------- Run screen ---------- */
+  #screen-run{ background:var(--bg); }
+  .run-body{ flex:1; display:flex; overflow:hidden; }
+  .run-left{
+    width:38%; min-width:320px; max-width:520px;
+    border-right:1px solid var(--panel-line);
+    display:flex; flex-direction:column;
+    padding:36px 34px;
+    background:var(--bg-alt);
+  }
+  .run-progress{ font-family:'IBM Plex Mono', monospace; color:var(--text-dim); font-size:12px; letter-spacing:.05em; text-transform:uppercase; margin-bottom:18px; }
+  .run-prompt{ flex:1; display:flex; flex-direction:column; gap:22px; }
+  .run-prompt-block{ display:none; }
+  .run-prompt-block.show{ display:block; }
+  .run-prompt-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  #run-action-block .run-prompt-label{ color:var(--line); }
+  #run-question-block .run-prompt-label{ color:var(--line-alt); }
+  .run-prompt-text{
+    font-family:'Fraunces', serif;
+    font-size:clamp(20px, 2.4vw, 28px);
+    line-height:1.3;
+    color:var(--text);
+  }
+  .run-answers{ display:flex; flex-direction:column; gap:12px; margin-top:24px; }
+  .run-answer-btn{
+    text-align:left;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:var(--radius);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    font-weight:600; font-size:15px;
+    padding:16px 18px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .run-answer-btn:hover{ border-color:var(--accent); background:var(--bg); transform:translateX(2px); }
+  .run-end{ font-family:'IBM Plex Mono', monospace; color:var(--accent-soft); font-size:14px; margin-top:24px; }
+  .run-footer{ display:flex; gap:10px; margin-top:24px; }
+  .run-right{ flex:1; overflow:auto; padding:40px 60px 120px 60px; position:relative;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0) 0 0/22px 22px,
+      var(--bg);
+  }
+  .node-card.view{ cursor:default; }
+  .node-card.view .node-text-view{
+    width:100%; background:var(--paper); color:#20291f; border:1px solid var(--paper-dim);
+    border-radius:6px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; line-height:1.4;
+    padding:8px; min-height:36px; white-space:pre-wrap; word-break:break-word;
+  }
+  .node-card.view .answer-row{ font-family:'IBM Plex Sans', sans-serif; font-size:12px; font-weight:600; color:var(--text-dim); }
+  .node-card.current{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(201,162,39,0.25), 0 6px 18px rgba(0,0,0,0.28); }
+  .node-card.visited{ opacity:0.55; }
+  .node-card.future{ opacity:0.3; }
+
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:var(--bg); }
+  ::-webkit-scrollbar-thumb{ background:var(--panel-line); border-radius:6px; }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--line-dim); }
+
+  /* ---------- Help button + tutorial modal ---------- */
+  #help-btn{
+    position:fixed; right:22px; bottom:22px; z-index:500;
+    width:44px; height:44px; border-radius:50%;
+    background:var(--panel); border:1px solid var(--panel-line);
+    color:var(--text); font-family:'Fraunces', serif; font-weight:600; font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    transition:border-color .15s ease, background .15s ease, transform .15s ease;
+  }
+  #help-btn:hover{ border-color:var(--accent); color:var(--accent-soft); transform:translateY(-2px); }
+
+  #help-overlay{
+    position:fixed; inset:0; z-index:600;
+    background:rgba(8,10,11,0.72);
+    display:none; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  #help-overlay.show{ display:flex; }
+  #help-modal{
+    width:100%; max-width:640px; max-height:82vh; overflow:auto;
+    background:var(--bg-alt); border:1px solid var(--panel-line); border-radius:14px;
+    padding:32px 34px;
+  }
+  #help-modal h2{
+    font-family:'Fraunces', serif; font-weight:600; font-size:26px; margin:0 0 4px;
+  }
+  #help-modal h2 span{ color:var(--accent); font-style:italic; }
+  #help-modal .help-sub{
+    font-family:'IBM Plex Mono', monospace; color:var(--text-dim); font-size:12px;
+    letter-spacing:.06em; text-transform:uppercase; margin-bottom:22px;
+  }
+  .help-section{ margin-bottom:22px; }
+  .help-section:last-of-type{ margin-bottom:0; }
+  .help-section h3{
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:700;
+    color:var(--accent-soft); margin:0 0 8px; letter-spacing:.02em;
+  }
+  .help-section p, .help-section li{
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; line-height:1.6;
+    color:var(--text); margin:0 0 6px;
+  }
+  .help-section ul{ margin:0; padding-left:20px; }
+  .help-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  #help-close{
+    position:sticky; top:0; float:right; margin-top:-8px; margin-right:-8px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE SCREEN -->
+  <div class="screen active" id="screen-title">
+    <h1 class="title-mark">Path<span>Maker</span></h1>
+    <div class="title-sub">build a branching path, one question at a time</div>
+    <div class="title-branches">
+      <button class="title-btn" id="btn-new-path">New Path<small>start from a blank question</small></button>
+      <button class="title-btn" id="btn-import-path">Import Path<small>drop or paste a .yml</small></button>
+      <button class="title-btn" id="btn-run-path">Run Path<small>walk through a saved path</small></button>
+    </div>
+  </div>
+
+  <!-- IMPORT SCREEN (shared by Import Path -> editor, Run Path -> run) -->
+  <div class="screen" id="screen-import">
+    <div class="topbar" style="width:100%;">
+      <button class="btn ghost" id="import-back">&larr; Back</button>
+      <div class="spacer"></div>
+      <div class="app-name">Path<span>Maker</span></div>
+    </div>
+    <div class="import-wrap">
+      <div class="import-title" id="import-title-text">Load a path</div>
+      <div class="import-panels">
+        <div class="dropzone" id="dropzone">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          <div>Drop a .yml file here<br>or click to choose one</div>
+        </div>
+        <div class="paste-panel">
+          <textarea id="paste-area" placeholder="...or paste path YAML here"></textarea>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".yml,.yaml,text/yaml,text/plain">
+      <div class="import-error" id="import-error"></div>
+      <button class="btn primary" id="import-load-btn">Load path</button>
+    </div>
+  </div>
+
+  <!-- EDITOR SCREEN -->
+  <div class="screen" id="screen-editor">
+    <div class="topbar">
+      <button class="btn ghost" id="editor-back">&larr; Title</button>
+      <input class="path-name-field" id="path-name" placeholder="Untitled Path" spellcheck="false">
+      <div class="spacer"></div>
+      <button class="btn" id="editor-run-btn">Run this path</button>
+      <button class="btn primary" id="editor-export-btn">Export .yml</button>
+    </div>
+    <div class="editor-canvas-outer" id="editor-canvas-outer">
+      <div class="tree-container" id="tree-container"></div>
+    </div>
+  </div>
+
+  <!-- RUN SCREEN -->
+  <div class="screen" id="screen-run">
+    <div class="topbar">
+      <button class="btn ghost" id="run-back">&larr; Title</button>
+      <div class="app-name" id="run-path-name">Path<span>Maker</span></div>
+      <div class="spacer"></div>
+      <button class="btn" id="run-restart-btn">Restart</button>
+    </div>
+    <div class="run-body">
+      <div class="run-left">
+        <div class="run-progress" id="run-progress">Step 1</div>
+        <div class="run-prompt">
+          <div class="run-prompt-block" id="run-action-block">
+            <div class="run-prompt-label">Do</div>
+            <div class="run-prompt-text" id="run-action-text"></div>
+          </div>
+          <div class="run-prompt-block" id="run-question-block">
+            <div class="run-prompt-label">Ask</div>
+            <div class="run-prompt-text" id="run-question-text"></div>
+          </div>
+        </div>
+        <div class="run-answers" id="run-answers"></div>
+        <div class="run-footer">
+          <button class="btn ghost" id="run-prev-btn" disabled>&larr; Previous</button>
+        </div>
+      </div>
+      <div class="run-right" id="run-right">
+        <div class="tree-container" id="run-tree-container"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<button id="help-btn" title="How PathMaker works">?</button>
+<div id="help-overlay">
+  <div id="help-modal">
+    <button id="help-close" class="btn ghost">Close</button>
+    <h2>Path<span>Maker</span></h2>
+    <div class="help-sub">how it works</div>
+
+    <div class="help-section">
+      <h3>New Path</h3>
+      <p>Every bubble has two fields: <strong>Do</strong> is the action for that step, <strong>Ask</strong> is the question that decides where to go next. Each bubble also has two answers &mdash; edit their labels, they default to Yes/No.</p>
+      <p><span class="help-dot" style="background:var(--line)"></span>Sage-green lines are the first answer's path. <span class="help-dot" style="background:var(--line-alt)"></span>Copper lines are the second answer's path &mdash; the color stays consistent all the way down the tree.</p>
+      <p>Click a dashed "+ add branch" box on the sides to grow the tree in that direction. The canvas scrolls down automatically as you build.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Ending a branch</h3>
+      <p>Click <strong>End path here</strong> on any bubble to mark it as a stopping point. It's reversible &mdash; anything you've already built underneath is kept and comes right back if you toggle it off again.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Import Path</h3>
+      <p>Drop a <code>.yml</code> file or paste its contents, then load it straight into the editor to keep building or fix it up.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Run Path</h3>
+      <p>Load a path the same way as Import, then work through it step by step: the left panel shows what to <strong>do</strong> first, then what to <strong>ask</strong>, with buttons for each answer. The right panel shows the whole tree with your current step highlighted, scrolling to keep it in view. Use Previous or Restart any time.</p>
+    </div>
+
+    <div class="help-section">
+      <h3>Saving your work</h3>
+      <p>Name your path at the top of the editor, then hit <strong>Export .yml</strong> to download it &mdash; plain text, easy to read or hand-edit, and ready to drop back in later.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================= State & data model =============================
+   node = { id, text, answers: [ {label, next: node|null}, {label, next: node|null} ] }
+   path  = { name, root: node }
+================================================================================= */
+
+let idCounter = 1;
+function newId(){ return 'n' + (idCounter++) + '_' + Math.random().toString(36).slice(2,7); }
+
+function newNode(){
+  return {
+    id: newId(),
+    action: '',
+    question: '',
+    ended: false,
+    answers: [
+      { label: 'Yes', next: null },
+      { label: 'No', next: null }
+    ]
+  };
+}
+
+function newPathState(){
+  return { name: '', root: newNode() };
+}
+
+let editorState = newPathState();
+
+/* -------- import -> tolerant loader from plain object (yaml-parsed) -------- */
+function fromPlainNode(obj){
+  const node = newNode();
+  if (obj && typeof obj === 'object'){
+    node.action = typeof obj.action === 'string' ? obj.action : '';
+    node.question = typeof obj.question === 'string' ? obj.question
+      : (typeof obj.text === 'string' ? obj.text : ''); // fallback for older single-field paths
+    node.ended = obj.ended === true;
+    if (Array.isArray(obj.answers) && obj.answers.length){
+      node.answers = obj.answers.slice(0,2).map((a, i) => ({
+        label: (a && typeof a.label === 'string' && a.label.trim()) ? a.label : (i === 0 ? 'Yes' : 'No'),
+        next: (a && a.next) ? fromPlainNode(a.next) : null
+      }));
+      while (node.answers.length < 2){
+        node.answers.push({ label: node.answers.length === 0 ? 'Yes' : 'No', next: null });
+      }
+    }
+  }
+  return node;
+}
+
+function fromPlainPath(obj){
+  const state = newPathState();
+  if (obj && typeof obj === 'object'){
+    state.name = typeof obj.name === 'string' ? obj.name : '';
+    state.root = obj.root ? fromPlainNode(obj.root) : newNode();
+  }
+  return state;
+}
+
+/* -------- export -> plain object stripped of ids, for YAML dump -------- */
+function toPlainNode(node){
+  return {
+    action: node.action || '',
+    question: node.question || '',
+    ended: !!node.ended,
+    answers: node.answers.map(a => ({
+      label: a.label || '',
+      next: a.next ? toPlainNode(a.next) : null
+    }))
+  };
+}
+function toPlainPath(state){
+  return { name: state.name || 'Untitled Path', root: toPlainNode(state.root) };
+}
+
+/* ============================= Help / tutorial modal ============================= */
+const helpBtn = document.getElementById('help-btn');
+const helpOverlay = document.getElementById('help-overlay');
+const helpClose = document.getElementById('help-close');
+
+helpBtn.addEventListener('click', () => helpOverlay.classList.add('show'));
+helpClose.addEventListener('click', () => helpOverlay.classList.remove('show'));
+helpOverlay.addEventListener('click', (e) => {
+  if (e.target === helpOverlay) helpOverlay.classList.remove('show');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') helpOverlay.classList.remove('show');
+});
+
+/* ============================= Navigation ============================= */
+
+const screens = {
+  title: document.getElementById('screen-title'),
+  import: document.getElementById('screen-import'),
+  editor: document.getElementById('screen-editor'),
+  run: document.getElementById('screen-run'),
+};
+function showScreen(name){
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+let importPurpose = 'edit'; // 'edit' -> goes to editor, 'run' -> goes to run
+
+document.getElementById('btn-new-path').addEventListener('click', () => {
+  editorState = newPathState();
+  document.getElementById('path-name').value = '';
+  showScreen('editor');
+  renderTree();
+});
+
+document.getElementById('btn-import-path').addEventListener('click', () => {
+  importPurpose = 'edit';
+  document.getElementById('import-title-text').textContent = 'Import a path to edit';
+  document.getElementById('import-error').textContent = '';
+  document.getElementById('paste-area').value = '';
+  showScreen('import');
+});
+
+document.getElementById('btn-run-path').addEventListener('click', () => {
+  importPurpose = 'run';
+  document.getElementById('import-title-text').textContent = 'Load a path to run';
+  document.getElementById('import-error').textContent = '';
+  document.getElementById('paste-area').value = '';
+  showScreen('import');
+});
+
+document.getElementById('import-back').addEventListener('click', () => showScreen('title'));
+document.getElementById('editor-back').addEventListener('click', () => showScreen('title'));
+document.getElementById('run-back').addEventListener('click', () => showScreen('title'));
+
+document.getElementById('editor-run-btn').addEventListener('click', () => {
+  startRun(editorState);
+});
+
+/* ============================= Import handling ============================= */
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const pasteArea = document.getElementById('paste-area');
+const importError = document.getElementById('import-error');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) readFile(fileInput.files[0]);
+});
+function readFile(file){
+  const reader = new FileReader();
+  reader.onload = () => { pasteArea.value = reader.result; };
+  reader.onerror = () => { importError.textContent = 'Could not read that file.'; };
+  reader.readAsText(file);
+}
+
+document.getElementById('import-load-btn').addEventListener('click', () => {
+  const raw = pasteArea.value.trim();
+  importError.textContent = '';
+  if (!raw){
+    importError.textContent = 'Drop a file or paste some YAML first.';
+    return;
+  }
+  let parsed;
+  try{
+    parsed = jsyaml.load(raw);
+  }catch(e){
+    importError.textContent = 'That YAML could not be parsed: ' + e.message;
+    return;
+  }
+  if (!parsed || typeof parsed !== 'object' || !parsed.root){
+    importError.textContent = 'That file does not look like a PathMaker path (missing "root").';
+    return;
+  }
+  const state = fromPlainPath(parsed);
+  if (importPurpose === 'edit'){
+    editorState = state;
+    document.getElementById('path-name').value = state.name || '';
+    showScreen('editor');
+    renderTree();
+  } else {
+    startRun(state);
+  }
+});
+
+/* ============================= Path name ============================= */
+document.getElementById('path-name').addEventListener('input', (e) => {
+  editorState.name = e.target.value;
+});
+
+/* ============================= Export ============================= */
+document.getElementById('editor-export-btn').addEventListener('click', () => {
+  const name = editorState.name.trim() || 'untitled-path';
+  const yamlText = jsyaml.dump(toPlainPath(editorState), { noRefs: true, lineWidth: 80 });
+  const blob = new Blob([yamlText], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name.replace(/[^a-z0-9\-_ ]/gi, '').trim().replace(/\s+/g, '-').toLowerCase() + '.yml';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+/* ============================= Tree layout ============================= */
+/* Classic tree layout: each leaf gets 1 unit of width; internal node's x is
+   the average of its children's x. Placeholder ("add branch") nodes count
+   as leaves of 1 unit so the whole thing stays a proper doubling pyramid. */
+
+const UNIT = 260;      // horizontal spacing unit -> px
+const LEVEL_H = 320;   // vertical spacing between levels -> px (long lines = clear yes/no paths)
+const CARD_W = 220;
+const PH_W = 130;
+
+function computeLayout(node, depth, xStart){
+  // returns { width (units), items: [ {node, placeholder, x (units center), depth} ], childLinks: [...] }
+  const items = [];
+  const links = [];
+  let widthUnits = 0;
+  const childCenters = [];
+
+  node.answers.forEach((ans, ansIdx) => {
+    if (ans.next){
+      const sub = computeLayout(ans.next, depth + 1, xStart + widthUnits);
+      items.push(...sub.items);
+      links.push(...sub.links);
+      childCenters.push(sub.rootX);
+      links.push({ fromDepth: depth, fromX: null, toDepth: depth + 1, toX: sub.rootX, label: ans.label, parentId: node.id, childId: ans.next.id, answerIndex: ansIdx });
+      widthUnits += sub.width;
+    } else {
+      // placeholder leaf
+      const x = xStart + widthUnits + 0.5;
+      items.push({ placeholder: true, x, depth: depth + 1, parentId: node.id, answerIndex: ansIdx, label: ans.label });
+      childCenters.push(x);
+      links.push({ fromDepth: depth, fromX: null, toDepth: depth + 1, toX: x, label: ans.label, parentId: node.id, placeholder: true, answerIndex: ansIdx });
+      widthUnits += 1;
+    }
+  });
+
+  if (widthUnits === 0) widthUnits = 1;
+  const rootX = childCenters.length ? (childCenters[0] + childCenters[childCenters.length - 1]) / 2 : xStart + 0.5;
+  items.push({ placeholder: false, node, x: rootX, depth });
+  return { width: widthUnits, items, links, rootX };
+}
+
+function linkColor(link){
+  if (link.placeholder) return link.answerIndex === 0 ? 'rgba(143,163,130,0.4)' : 'rgba(201,138,74,0.4)';
+  return link.answerIndex === 0 ? 'var(--line)' : 'var(--line-alt)';
+}
+
+function drawConnectorLabel(svg, svgNS, x, y, text, parentId, answerIndex, prefix){
+  const g = document.createElementNS(svgNS, 'g');
+  const rect = document.createElementNS(svgNS, 'rect');
+  const txt = document.createElementNS(svgNS, 'text');
+  txt.textContent = text || '';
+  txt.setAttribute('x', x);
+  txt.setAttribute('y', y);
+  txt.setAttribute('text-anchor', 'middle');
+  txt.setAttribute('dominant-baseline', 'middle');
+  txt.style.fill = '#1a1405';
+  txt.style.fontFamily = "'IBM Plex Sans', sans-serif";
+  txt.style.fontWeight = '700';
+  txt.style.fontSize = '12px';
+  txt.id = 'connlabel-' + prefix + '-' + parentId + '-' + answerIndex;
+  rect.style.fill = 'var(--accent-soft)';
+  rect.setAttribute('rx', 8);
+  g.appendChild(rect);
+  g.appendChild(txt);
+  svg.appendChild(g);
+  requestAnimationFrame(() => sizeConnectorLabelRect(txt, rect));
+}
+function sizeConnectorLabelRect(txt, rect){
+  try{
+    const bbox = txt.getBBox();
+    rect.setAttribute('x', bbox.x - 8);
+    rect.setAttribute('y', bbox.y - 4);
+    rect.setAttribute('width', bbox.width + 16);
+    rect.setAttribute('height', bbox.height + 8);
+  }catch(e){ /* not yet laid out */ }
+}
+function updateConnectorLabel(parentId, answerIndex, text){
+  const txt = document.getElementById('connlabel-e-' + parentId + '-' + answerIndex);
+  if (!txt) return;
+  txt.textContent = text || '';
+  const rect = txt.previousSibling;
+  if (rect) sizeConnectorLabelRect(txt, rect);
+}
+
+/* ============================= Editor rendering ============================= */
+
+const canvasOuter = document.getElementById('editor-canvas-outer');
+const treeContainer = document.getElementById('tree-container');
+
+function renderTree(){
+  const layout = computeLayout(editorState.root, 0, 0);
+  const maxDepth = Math.max(...layout.items.map(i => i.depth));
+  const totalWidthUnits = layout.width;
+  const containerWidth = Math.max(totalWidthUnits * UNIT, CARD_W + 80);
+  const containerHeight = (maxDepth + 1) * LEVEL_H + 60;
+
+  treeContainer.style.width = containerWidth + 'px';
+  treeContainer.style.height = containerHeight + 'px';
+  treeContainer.innerHTML = '';
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('class', 'connectors');
+  svg.setAttribute('width', containerWidth);
+  svg.setAttribute('height', containerHeight);
+  treeContainer.appendChild(svg);
+
+  function unitToPx(u){ return u * UNIT + UNIT / 2; }
+  function depthToPy(d){ return d * LEVEL_H + 40; }
+
+  // fill in fromX for links using node map
+  const nodeXById = {};
+  layout.items.forEach(it => { if (!it.placeholder) nodeXById[it.node.id] = it.x; });
+
+  layout.links.forEach(link => {
+    const fromX = nodeXById[link.parentId];
+    const x1 = unitToPx(fromX);
+    const y1 = depthToPy(link.fromDepth) + 100;
+    const x2 = unitToPx(link.toX);
+    const y2 = depthToPy(link.toDepth) + (link.placeholder ? 20 : 0);
+    const midY = (y1 + y2) / 2;
+    const path = document.createElementNS(svgNS, 'path');
+    const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+    path.setAttribute('d', d);
+    path.style.fill = 'none';
+    path.style.stroke = linkColor(link);
+    path.style.strokeWidth = '2.5';
+    if (link.placeholder) path.style.strokeDasharray = '4 4';
+    svg.appendChild(path);
+    drawConnectorLabel(svg, svgNS, x2, midY, link.label, link.parentId, link.answerIndex, 'e');
+  });
+
+  layout.items.forEach(it => {
+    if (it.placeholder){
+      // nudge placeholders outward, away from the tree's centerline, so they
+      // don't sit tucked underneath the wider node cards above them
+      const parentX = nodeXById[it.parentId];
+      const side = it.x < parentX ? -1 : (it.x > parentX ? 1 : (it.answerIndex === 0 ? -1 : 1));
+      const outwardPx = unitToPx(it.x) + side * 46;
+      const div = document.createElement('div');
+      div.className = 'placeholder-node';
+      div.style.left = (outwardPx - PH_W / 2) + 'px';
+      div.style.top = depthToPy(it.depth) + 'px';
+      div.textContent = '+ add "' + (it.label || (it.answerIndex === 0 ? 'Yes' : 'No')) + '" branch';
+      div.addEventListener('click', () => {
+        const parent = findNodeById(editorState.root, it.parentId);
+        parent.answers[it.answerIndex].next = newNode();
+        renderTree();
+        scrollTreeToBottom();
+      });
+      treeContainer.appendChild(div);
+    } else {
+      const card = buildNodeCard(it.node, it.depth === 0);
+      card.style.left = (unitToPx(it.x) - CARD_W / 2) + 'px';
+      card.style.top = depthToPy(it.depth) + 'px';
+      treeContainer.appendChild(card);
+    }
+  });
+}
+
+function findNodeById(node, id){
+  if (node.id === id) return node;
+  for (const a of node.answers){
+    if (a.next){
+      const found = findNodeById(a.next, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findParentAndIndex(node, id, parent = null, idx = -1){
+  if (node.id === id) return { parent, idx };
+  for (let i = 0; i < node.answers.length; i++){
+    const a = node.answers[i];
+    if (a.next){
+      if (a.next.id === id) return { parent: node, idx: i };
+      const found = findParentAndIndex(a.next, id, node, i);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function autoResize(el){
+  el.style.height = 'auto';
+  el.style.height = Math.max(52, el.scrollHeight) + 'px';
+}
+
+function buildNodeCard(node, isRoot){
+  const card = document.createElement('div');
+  card.className = 'node-card' + (isRoot ? ' root' : '') + (node.ended ? ' ended' : '');
+  card.dataset.id = node.id;
+
+  if (node.ended){
+    const badge = document.createElement('div');
+    badge.className = 'end-badge';
+    badge.textContent = 'PATH ENDS HERE';
+    card.appendChild(badge);
+  }
+
+  const actionLabel = document.createElement('div');
+  actionLabel.className = 'field-label';
+  actionLabel.textContent = 'Do';
+  card.appendChild(actionLabel);
+
+  const actionArea = document.createElement('textarea');
+  actionArea.className = 'node-text';
+  actionArea.placeholder = 'What action happens here?';
+  actionArea.value = node.action;
+  actionArea.spellcheck = false;
+  actionArea.addEventListener('input', () => {
+    node.action = actionArea.value;
+    autoResize(actionArea);
+  });
+  card.appendChild(actionArea);
+  setTimeout(() => autoResize(actionArea), 0);
+
+  const questionLabel = document.createElement('div');
+  questionLabel.className = 'field-label';
+  questionLabel.textContent = 'Ask';
+  card.appendChild(questionLabel);
+
+  const questionArea = document.createElement('textarea');
+  questionArea.className = 'node-text question';
+  questionArea.placeholder = 'What question decides where to go next?';
+  questionArea.value = node.question;
+  questionArea.spellcheck = false;
+  questionArea.addEventListener('input', () => {
+    node.question = questionArea.value;
+    autoResize(questionArea);
+  });
+  card.appendChild(questionArea);
+  setTimeout(() => autoResize(questionArea), 0);
+
+  if (!node.ended){
+    const answersWrap = document.createElement('div');
+    answersWrap.className = 'node-answers';
+    node.answers.forEach((ans, i) => {
+      const row = document.createElement('div');
+      row.className = 'answer-row';
+      const dot = document.createElement('div');
+      dot.className = 'answer-dot ' + (i === 0 ? 'left' : 'right');
+      const input = document.createElement('input');
+      input.className = 'answer-label';
+      input.value = ans.label;
+      input.spellcheck = false;
+      input.addEventListener('input', () => {
+        ans.label = input.value;
+        updateConnectorLabel(node.id, i, input.value);
+      });
+      row.appendChild(dot);
+      row.appendChild(input);
+      answersWrap.appendChild(row);
+    });
+    card.appendChild(answersWrap);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'node-actions';
+
+  const endBtn = document.createElement('button');
+  endBtn.className = 'btn toggle-end' + (node.ended ? ' active' : '');
+  endBtn.textContent = node.ended ? 'Resume path' : 'End path here';
+  endBtn.title = node.ended
+    ? 'Bring back the branches under this step'
+    : 'Mark this as a stopping point (reversible — your branches underneath are kept)';
+  endBtn.addEventListener('click', () => {
+    node.ended = !node.ended;
+    renderTree();
+  });
+  actions.appendChild(endBtn);
+
+  if (!isRoot){
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn danger';
+    delBtn.textContent = 'Delete branch';
+    delBtn.addEventListener('click', () => {
+      const loc = findParentAndIndex(editorState.root, node.id);
+      if (loc && loc.parent){
+        loc.parent.answers[loc.idx].next = null;
+        renderTree();
+      }
+    });
+    actions.appendChild(delBtn);
+  }
+
+  card.appendChild(actions);
+  return card;
+}
+
+function scrollTreeToBottom(){
+  requestAnimationFrame(() => {
+    canvasOuter.scrollTo({ top: canvasOuter.scrollHeight, behavior: 'smooth' });
+  });
+}
+
+/* ============================= Run mode ============================= */
+
+let runState = null;
+let runHistory = []; // stack of node ids visited
+let runCurrentId = null;
+
+function startRun(state){
+  runState = state;
+  runHistory = [];
+  runCurrentId = state.root.id;
+  document.getElementById('run-path-name').innerHTML = 'Path<span>Maker</span>' +
+    (state.name ? ' &middot; ' + escapeHtml(state.name) : '');
+  showScreen('run');
+  renderRunTree();
+  renderRunStep();
+}
+
+document.getElementById('run-restart-btn').addEventListener('click', () => {
+  if (!runState) return;
+  runHistory = [];
+  runCurrentId = runState.root.id;
+  renderRunStep();
+  scrollRunToCurrent();
+});
+
+document.getElementById('run-prev-btn').addEventListener('click', () => {
+  if (runHistory.length){
+    runCurrentId = runHistory.pop();
+    renderRunStep();
+    scrollRunToCurrent();
+  }
+});
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderRunStep(){
+  const node = findNodeById(runState.root, runCurrentId);
+  const progressEl = document.getElementById('run-progress');
+  const actionBlock = document.getElementById('run-action-block');
+  const questionBlock = document.getElementById('run-question-block');
+  const actionText = document.getElementById('run-action-text');
+  const questionText = document.getElementById('run-question-text');
+  const answersEl = document.getElementById('run-answers');
+  const prevBtn = document.getElementById('run-prev-btn');
+
+  progressEl.textContent = 'Step ' + (runHistory.length + 1);
+  prevBtn.disabled = runHistory.length === 0;
+  answersEl.innerHTML = '';
+  actionBlock.classList.remove('show');
+  questionBlock.classList.remove('show');
+
+  if (!node){
+    actionBlock.classList.add('show');
+    actionText.textContent = 'This branch is empty.';
+    return;
+  }
+
+  if (node.action){
+    actionBlock.classList.add('show');
+    actionText.textContent = node.action;
+  }
+  if (node.question){
+    questionBlock.classList.add('show');
+    questionText.textContent = node.question;
+  }
+  if (!node.action && !node.question){
+    actionBlock.classList.add('show');
+    actionText.textContent = '(no action or question was entered for this step)';
+  }
+
+  const hasAnyNext = !node.ended && node.answers.some(a => a.next);
+  if (!hasAnyNext){
+    const end = document.createElement('div');
+    end.className = 'run-end';
+    end.textContent = node.ended ? 'Path ends here.' : 'End of path.';
+    answersEl.appendChild(end);
+  } else {
+    node.answers.forEach(a => {
+      const btn = document.createElement('button');
+      btn.className = 'run-answer-btn';
+      btn.textContent = a.label || '(unlabeled)';
+      btn.disabled = !a.next;
+      if (!a.next) btn.style.opacity = '0.35';
+      btn.addEventListener('click', () => {
+        if (!a.next) return;
+        runHistory.push(runCurrentId);
+        runCurrentId = a.next.id;
+        renderRunStep();
+        scrollRunToCurrent();
+      });
+      answersEl.appendChild(btn);
+    });
+  }
+  highlightRunTree();
+}
+
+/* Right-hand read-only tree for run mode, reusing the same layout engine */
+const runTreeContainer = document.getElementById('run-tree-container');
+const runRight = document.getElementById('run-right');
+
+function renderRunTree(){
+  const layout = computeLayout(runState.root, 0, 0);
+  const maxDepth = Math.max(...layout.items.map(i => i.depth));
+  const containerWidth = Math.max(layout.width * UNIT, CARD_W + 80);
+  const containerHeight = (maxDepth + 1) * LEVEL_H + 60;
+
+  runTreeContainer.style.width = containerWidth + 'px';
+  runTreeContainer.style.height = containerHeight + 'px';
+  runTreeContainer.innerHTML = '';
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('class', 'connectors');
+  svg.setAttribute('width', containerWidth);
+  svg.setAttribute('height', containerHeight);
+  runTreeContainer.appendChild(svg);
+
+  function unitToPx(u){ return u * UNIT + UNIT / 2; }
+  function depthToPy(d){ return d * LEVEL_H + 40; }
+
+  const nodeXById = {};
+  layout.items.forEach(it => { if (!it.placeholder) nodeXById[it.node.id] = it.x; });
+
+  layout.links.forEach(link => {
+    if (link.placeholder) return; // run view doesn't need empty-branch stubs
+    const fromX = nodeXById[link.parentId];
+    const x1 = unitToPx(fromX);
+    const y1 = depthToPy(link.fromDepth) + 90;
+    const x2 = unitToPx(link.toX);
+    const y2 = depthToPy(link.toDepth);
+    const midY = (y1 + y2) / 2;
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+    path.style.fill = 'none';
+    path.style.stroke = linkColor(link);
+    path.style.strokeWidth = '2.5';
+    svg.appendChild(path);
+    drawConnectorLabel(svg, svgNS, x2, midY, link.label, link.parentId, link.answerIndex, 'r');
+  });
+
+  layout.items.forEach(it => {
+    if (it.placeholder) return;
+    const node = it.node;
+    const card = document.createElement('div');
+    card.className = 'node-card view' + (node.ended ? ' ended' : '');
+    card.dataset.id = node.id;
+    card.style.left = (unitToPx(it.x) - CARD_W / 2) + 'px';
+    card.style.top = depthToPy(it.depth) + 'px';
+
+    if (node.ended){
+      const badge = document.createElement('div');
+      badge.className = 'end-badge';
+      badge.textContent = 'PATH ENDS HERE';
+      card.appendChild(badge);
+    }
+
+    if (node.action){
+      const doLabel = document.createElement('div');
+      doLabel.className = 'field-label';
+      doLabel.textContent = 'Do';
+      card.appendChild(doLabel);
+      const actionDiv = document.createElement('div');
+      actionDiv.className = 'node-text-view';
+      actionDiv.textContent = node.action;
+      card.appendChild(actionDiv);
+    }
+    if (node.question){
+      const askLabel = document.createElement('div');
+      askLabel.className = 'field-label';
+      askLabel.textContent = 'Ask';
+      card.appendChild(askLabel);
+      const questionDiv = document.createElement('div');
+      questionDiv.className = 'node-text-view';
+      questionDiv.textContent = node.question;
+      card.appendChild(questionDiv);
+    }
+    if (!node.action && !node.question){
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'node-text-view';
+      emptyDiv.textContent = '(empty)';
+      card.appendChild(emptyDiv);
+    }
+
+    if (!node.ended){
+      const answersWrap = document.createElement('div');
+      answersWrap.className = 'node-answers';
+      node.answers.forEach((ans, i) => {
+        const row = document.createElement('div');
+        row.className = 'answer-row';
+        const dot = document.createElement('div');
+        dot.className = 'answer-dot ' + (i === 0 ? 'left' : 'right');
+        const lbl = document.createElement('span');
+        lbl.textContent = ans.label;
+        row.appendChild(dot);
+        row.appendChild(lbl);
+        answersWrap.appendChild(row);
+      });
+      card.appendChild(answersWrap);
+    }
+
+    runTreeContainer.appendChild(card);
+  });
+}
+
+function highlightRunTree(){
+  const cards = runTreeContainer.querySelectorAll('.node-card');
+  const visitedSet = new Set(runHistory);
+  cards.forEach(c => {
+    c.classList.remove('current', 'visited', 'future');
+    const id = c.dataset.id;
+    if (id === runCurrentId) c.classList.add('current');
+    else if (visitedSet.has(id)) c.classList.add('visited');
+    else c.classList.add('future');
+  });
+}
+
+function scrollRunToCurrent(){
+  requestAnimationFrame(() => {
+    const el = runTreeContainer.querySelector('.node-card.current');
+    if (el){
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+  });
+}
+</script>
+</body>
+</html>
